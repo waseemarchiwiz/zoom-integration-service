@@ -124,8 +124,7 @@ app.get("/media/recording/:recordingId", async (req, res) => {
   try {
     const token = await getZoomAccessToken();
     // Zoom Phone recording download endpoint
-    const zoomUrl = `https://zoom.us/v2/phone/recording/download/${encodeURIComponent(req.params.recordingId)}`;
-
+    const zoomUrl = `https://api.zoom.us/v2/phone/recording/${encodeURIComponent(req.params.recordingId)}/download`;
     const resp = await axios.get(zoomUrl, {
       headers: { Authorization: `Bearer ${token}` },
       responseType: "stream",
