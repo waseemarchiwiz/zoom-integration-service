@@ -131,3 +131,25 @@ export async function getEnrichedCallData(callId, aroundIso = "") {
     callPath,
   };
 }
+
+export async function getRecordingDownloadUrl(recordingId, aroundIso = "") {
+  const token = await getZoomAccessToken();
+  const anchor = aroundIso ? new Date(aroundIso) : new Date();
+  const fromDate = new Date(anchor);
+  const toDate = new Date(anchor);
+  fromDate.setDate(fromDate.getDate() - 2);
+  toDate.setDate(toDate.getDate() + 1);
+
+  const resp = await axios.get("https://api.zoom.us/v2/phone/recordings", {
+    headers: authHeaders(token),
+    params: {
+      from: formatDateOnly(fromDate),
+      to: formatDateOnly(toDate),
+      page_size: 100,
+    },
+  });
+
+  const recordings = resp.data?.recordings || [];
+  const hit = recordings.find((r) => r.id === recordingId);
+  return hit?.download_url || null;
+}

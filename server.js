@@ -5,8 +5,8 @@ import {
   getZoomAccessToken,
   findCallHistoryByZoomCallId,
   getCallPath,
-  getAccountCallHistory,
   getEnrichedCallData,
+  getRecordingDownloadUrl,
 } from "./zoom-api.js";
 
 import {
@@ -122,10 +122,14 @@ app.get("/media/voicemail/:voicemailId", async (req, res) => {
 
 app.get("/media/recording/:recordingId", async (req, res) => {
   try {
+    const downloadUrl = await getRecordingDownloadUrl(req.params.recordingId);
+
+    if (!downloadUrl) {
+      return res.status(404).json({ error: "Recording not found" });
+    }
+
     const token = await getZoomAccessToken();
-    // Zoom Phone recording download endpoint
-    const zoomUrl = `https://api.zoom.us/v2/phone/recording/${encodeURIComponent(req.params.recordingId)}/download`;
-    const resp = await axios.get(zoomUrl, {
+    const resp = await axios.get(downloadUrl, {
       headers: { Authorization: `Bearer ${token}` },
       responseType: "stream",
       maxRedirects: 5,
@@ -136,7 +140,6 @@ app.get("/media/recording/:recordingId", async (req, res) => {
       res.setHeader("Content-Length", resp.headers["content-length"]);
     }
     res.setHeader("Content-Disposition", "inline");
-
     resp.data.pipe(res);
   } catch (err) {
     console.error(
