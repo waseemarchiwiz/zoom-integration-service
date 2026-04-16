@@ -183,6 +183,23 @@ async function postFinalSummary(groupKey) {
   const callRecord = state.calls[groupKey];
   if (!callRecord || callRecord.summaryPosted) return;
 
+  // Re-enrich from Zoom API (data may not have been ready during webhook)
+  if (callRecord.zoomCallId && !callRecord.recording?.available) {
+    try {
+      const apiData = await getEnrichedCallData(
+        callRecord.zoomCallId,
+        callRecord.endedAt || callRecord.startedAt || "",
+      );
+      if (apiData) {
+        mergeZoomApiData(callRecord, apiData);
+        saveState(state);
+        console.log(`Re-enriched call ${groupKey} from Zoom API`);
+      }
+    } catch (err) {
+      console.warn("Re-enrichment failed:", err?.response?.data || err.message);
+    }
+  }
+
   const info = {
     event:
       callRecord.status === "missed"
@@ -376,7 +393,7 @@ app.post(
             } finally {
               pendingSummaries.delete(info.groupKey);
             }
-          }, 1500);
+          }, 10000);
         }
       });
 
