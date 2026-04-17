@@ -521,7 +521,7 @@ export function buildCallMessage(info, callRecord) {
   }
 
   // ── Use proxied URLs for recording and voicemail ──
-  if (callRecord?.recording?.available) {
+  if (callRecord?.recording?.available && status !== "voicemail") {
     const url =
       proxyRecordingUrl(callRecord.recording.id) ||
       callRecord.recording.url ||
