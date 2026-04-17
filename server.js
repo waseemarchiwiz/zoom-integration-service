@@ -184,7 +184,11 @@ async function postFinalSummary(groupKey) {
   if (!callRecord || callRecord.summaryPosted) return;
 
   // Re-enrich from Zoom API (data may not have been ready during webhook)
-  if (callRecord.zoomCallId && !callRecord.recording?.available) {
+  if (
+    callRecord.zoomCallId &&
+    (!callRecord.recording?.available ||
+      (callRecord.recording?.id && !callRecord.recording?.downloadUrl))
+  ) {
     try {
       const apiData = await getEnrichedCallData(
         callRecord.zoomCallId,
@@ -193,6 +197,27 @@ async function postFinalSummary(groupKey) {
       if (apiData) {
         mergeZoomApiData(callRecord, apiData);
         saveState(state);
+
+        // Fetch recording download URL if we have a recording ID
+        if (callRecord.recording?.id && !callRecord.recording?.downloadUrl) {
+          try {
+            const { getRecordingDownloadUrl } = await import("./zoom-api.js");
+            const downloadUrl = await getRecordingDownloadUrl(
+              callRecord.recording.id,
+              callRecord.endedAt || "",
+            );
+            if (downloadUrl) {
+              callRecord.recording.downloadUrl = downloadUrl;
+              saveState(state);
+              console.log(`Recording download URL found for ${groupKey}`);
+            }
+          } catch (err) {
+            console.warn(
+              "Recording URL lookup failed:",
+              err?.response?.data || err.message,
+            );
+          }
+        }
         console.log(`Re-enriched call ${groupKey} from Zoom API`);
       }
     } catch (err) {
