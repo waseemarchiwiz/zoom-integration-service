@@ -400,11 +400,22 @@ app.post(
         );
         saveState(state);
 
+        const isVoicemailOverride =
+          info.event === "phone.voicemail_received" && callRecord.summaryPosted;
+
         if (
-          ENDED_EVENTS.has(info.event) &&
-          !callRecord.summaryPosted &&
-          !pendingSummaries.has(info.groupKey)
+          (ENDED_EVENTS.has(info.event) &&
+            !callRecord.summaryPosted &&
+            !pendingSummaries.has(info.groupKey)) ||
+          isVoicemailOverride
         ) {
+          if (isVoicemailOverride) {
+            callRecord.summaryPosted = false;
+            saveState(state);
+            console.log(
+              `Voicemail override — will re-post summary for ${info.groupKey}`,
+            );
+          }
           pendingSummaries.set(info.groupKey, true);
 
           setTimeout(async () => {
