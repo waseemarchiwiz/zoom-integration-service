@@ -135,7 +135,34 @@ app.get("/media/voicemail/:voicemailId", async (req, res) => {
 
 app.get("/media/recording/:recordingId", async (req, res) => {
   try {
-    const downloadUrl = await getRecordingDownloadUrl(req.params.recordingId);
+    const { recordingId } = req.params;
+
+    const state = loadState();
+    const matchingEntry = Object.entries(state.calls).find(
+      ([, call]) => call?.recording?.id === recordingId,
+    );
+
+    const matchingCall = matchingEntry?.[1] || null;
+
+    let downloadUrl = matchingCall?.recording?.downloadUrl || "";
+
+    // First try the safer dated lookup using the saved call timestamps
+    if (!downloadUrl && matchingCall) {
+      downloadUrl = await getRecordingDownloadUrl(
+        recordingId,
+        matchingCall?.endedAt || matchingCall?.startedAt || "",
+      );
+
+      if (downloadUrl) {
+        matchingCall.recording.downloadUrl = downloadUrl;
+        saveState(state);
+      }
+    }
+
+    // Final fallback: preserve the old behavior exactly
+    if (!downloadUrl) {
+      downloadUrl = await getRecordingDownloadUrl(recordingId);
+    }
 
     if (!downloadUrl) {
       return res.status(404).json({ error: "Recording not found" });
@@ -153,6 +180,7 @@ app.get("/media/recording/:recordingId", async (req, res) => {
       res.setHeader("Content-Length", resp.headers["content-length"]);
     }
     res.setHeader("Content-Disposition", "inline");
+
     resp.data.pipe(res);
   } catch (err) {
     console.error(
