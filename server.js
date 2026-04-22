@@ -35,6 +35,8 @@ import {
   updateCallRecord,
   syncConversationCustomAttributes,
   mergeZoomApiData,
+  getCallsForConversation,
+  serializeCallForApi,
 } from "./utils.js";
 
 const app = express();
@@ -43,6 +45,17 @@ const pendingSummaries = new Map();
 
 // TEMP: keep calls visible in Chatwoot while testing UI
 const AUTO_RESOLVE_CALLS = false;
+
+// Middleware
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 async function withLock(key, fn) {
   while (processingLocks.get(key)) {
@@ -312,6 +325,34 @@ app.get("/debug/zoom-api/:callId", async (req, res) => {
     return res.status(500).json({
       error: "Zoom API debug failed",
       detail: err?.response?.data || err.message || String(err),
+    });
+  }
+});
+
+app.get("/api/zoom/conversation/:conversationId", async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const calls = getCallsForConversation(conversationId);
+
+    if (!calls.length) {
+      return res.json({
+        conversationId: Number(conversationId),
+        hasMatch: false,
+        matchType: "none",
+        calls: [],
+      });
+    }
+
+    return res.json({
+      conversationId: Number(conversationId),
+      hasMatch: true,
+      matchType: calls.length === 1 ? "direct" : "multiple",
+      calls: calls.map(serializeCallForApi),
+    });
+  } catch (err) {
+    console.error("Conversation lookup failed:", err?.message || err);
+    return res.status(500).json({
+      error: "Conversation lookup failed",
     });
   }
 });

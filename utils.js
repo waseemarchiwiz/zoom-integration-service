@@ -1061,3 +1061,104 @@ export function mergeZoomApiData(callRecord, apiData) {
     callRecord.duration = talkStep.talkTime;
   }
 }
+
+export function getCallsForConversation(conversationId) {
+  const state = loadState();
+  const wanted = String(conversationId || "").trim();
+
+  return Object.entries(state.calls)
+    .filter(([, call]) => String(call.conversationId) === wanted)
+    .map(([groupKey, call]) => ({
+      groupKey,
+      ...call,
+    }))
+    .sort((a, b) => {
+      const aTime = new Date(a.endedAt || a.startedAt || 0).getTime();
+      const bTime = new Date(b.endedAt || b.startedAt || 0).getTime();
+      return bTime - aTime;
+    });
+}
+
+export function serializeCallForApi(callRecord) {
+  const recordingUrl =
+    proxyRecordingUrl(callRecord.recording?.id) ||
+    callRecord.recording?.downloadUrl ||
+    callRecord.recording?.url ||
+    "";
+
+  const voicemailUrl =
+    proxyVoicemailUrl(callRecord.voicemail?.url) ||
+    callRecord.voicemail?.url ||
+    "";
+
+  return {
+    conversationId: callRecord.conversationId,
+    contactIdentifier: callRecord.contactIdentifier || "",
+    zoomCallId: callRecord.zoomCallId || "",
+    zoomCallHistoryId: callRecord.zoomCallHistoryId || "",
+    zoomCallPathId: callRecord.zoomCallPathId || "",
+    status: callRecord.status || "",
+    direction: callRecord.direction || "",
+    startedAt: callRecord.startedAt || "",
+    ringingStartedAt: callRecord.ringingStartedAt || "",
+    answerStartedAt: callRecord.answerStartedAt || "",
+    endedAt: callRecord.endedAt || "",
+    durationSeconds: callRecord.duration ?? null,
+    durationFormatted: formatDuration(callRecord.duration),
+    waitSeconds: callRecord.waitSeconds ?? null,
+    waitFormatted: formatDuration(callRecord.waitSeconds),
+    handupResult: callRecord.handupResult || "",
+
+    caller: {
+      number: callRecord.caller?.number || "",
+      name: callRecord.caller?.name || "",
+      extension: callRecord.caller?.extension || "",
+      email: callRecord.caller?.email || "",
+    },
+
+    callee: {
+      number: callRecord.callee?.number || "",
+      name: callRecord.callee?.name || "",
+      extension: callRecord.callee?.extension || "",
+      email: callRecord.callee?.email || "",
+    },
+
+    answeredBy: {
+      name: callRecord.answeredBy?.name || "",
+      extension: callRecord.answeredBy?.extension || "",
+      email: callRecord.answeredBy?.email || "",
+    },
+
+    queue: {
+      name: callRecord.queue?.name || "",
+      extension: callRecord.queue?.extension || "",
+    },
+
+    autoReceptionist: {
+      name: callRecord.autoReceptionist?.name || "",
+      extension: callRecord.autoReceptionist?.extension || "",
+    },
+
+    recording: {
+      available: !!callRecord.recording?.available,
+      id: callRecord.recording?.id || "",
+      url: recordingUrl,
+    },
+
+    voicemail: {
+      available: !!callRecord.voicemail?.available,
+      id: callRecord.voicemail?.id || "",
+      url: voicemailUrl,
+      transcript: callRecord.voicemail?.transcript || "",
+    },
+
+    aiSummary: {
+      available: !!callRecord.aiSummary?.available,
+      text: callRecord.aiSummary?.text || "",
+    },
+
+    routePath: callRecord.routePath || [],
+    events: callRecord.events || [],
+    summaryPosted: !!callRecord.summaryPosted,
+  };
+}
